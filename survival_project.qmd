@@ -1,0 +1,27 @@
+---
+title: "Survival Analysis Project"
+format: html
+editor: visual
+---
+
+#
+Load necesary libraries
+```{r}
+library(tidymodels)
+library(readr)
+
+data <- read_csv("data/adoption_data.csv")
+
+glimpse(data)
+```
+
+# EDA
+```{r}
+data |> 
+  count(animal_type)
+
+data |> 
+  count(sex)
+
+```
+
