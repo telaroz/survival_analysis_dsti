@@ -38,10 +38,15 @@ Data dictionary - id: unique id for each animal
 ##  Load necessary libraries
 
 ```{r}
-library(tidymodels)
+# Packages for data preparation
+library(dplyr)
 library(readr)
 library(skimr)
 library(gt)
+
+# Packages for analyzing survival data
+library(survival)
+library(survminer)
 
 raW_data <- read_csv("data/train.csv")
 ```
@@ -84,6 +89,28 @@ raW_data <- raW_data |>
   mutate(has_name = !is.na(name)) # If not NA, then it has a name. 
 ```
 
+Also, let's treat the `animal_type` and `sex` variables as integers, so they can
+enter the model
+
+```{r}
+raW_data <- raW_data |> 
+  mutate(integer_sex = as.integer(as.factor(sex)),
+         integer_animal_type = as.integer(as.factor(animal_type)))
+```
+
+
+Lastly, we will work with `spay_neuter` as our grouping variable. We would like
+to verify if there are differences in adoption times if the animal is spay 
+neutered or not. If we have an `Unknown` in the variable, we will encode it as
+`Intact`, as knowing for sure how the animal has been handled is important. 
+
+```{r}
+raW_data <- raW_data |> 
+  mutate(spay_neuter = if_else(spay_neuter == "Unknown", "Intact", spay_neuter),
+         integer_spay_neuter = as.integer(as.factor(spay_neuter)))
+```
+
+
 Now let's work with the time variable and our outcome variable.
 
 ```{r}
@@ -110,7 +137,9 @@ raW_data <- raW_data |>
 ```
 
 ```{r}
-raW_data |> filter(time_to_outcome < 0) |> gt()
+raW_data |> 
+  filter(time_to_outcome < 0) |> 
+  gt()
 ```
 We have some negative values, which makes no sense as the date_of_birth should 
 come before the outcome, so we remove these observations.
@@ -120,15 +149,37 @@ raW_data <- raW_data |>
   filter(time_to_outcome >= 0)
 ```
 
-Now we chose the variable we will use as a clean data
+Let's look at the encoding for sex, spay_neuter and animal_type before we
+go on analyzing with our clean data. 
+
+```{r}
+raW_data |> 
+  count(integer_animal_type, animal_type) |> 
+  gt()
+
+raW_data |> 
+  count(integer_sex, sex) |> 
+  gt()
+
+raW_data |> 
+  count(integer_spay_neuter, spay_neuter) |> 
+  gt()
+```
+
+
+Now we chose the variable we will use as a clean data.
+*******************************************************************
+We could also keep the raw character variables as was done in class
+*******************************************************************
 
 ```{r}
 data <- raW_data |> 
-  select(id, animal_type, sex, spay_neuter,
+  select(id, animal_type = integer_animal_type, sex = integer_sex, 
+         spay_neuter = integer_spay_neuter,
          has_name, outcome, time_to_outcome) |> 
   mutate(id = as.character(id))
-  
 ```
+
 
 # Statistical Analysis
 
@@ -141,5 +192,33 @@ Example options given by instructions:
 - semi-parametric Cox regression
 
 
+## Multivariate Cox regression
+
+```{r}
+cox_model <- coxph(Surv(time_to_outcome, outcome) ~ animal_type + sex + spay_neuter, data = data)
+summary(cox_model)
+```
+Let's see our predicted survival proportion for the whole data.
+
+```{r}
+ggsurvplot(survfit(cox_model), data = data)
+```
+
+Now, we can verify how this survival changes depending on the `spay_neuter`
+variable.
+
+```{r}
+# Prediction
+spay_neutered_data <- tibble(spay_neuter = c(1, 2), 
+                             animal_type = c(1, 1), 
+                             sex = c(1, 1))
+# Fit a prediction
+fit <- survfit(cox_model, newdata = spay_neutered_data)
+
+ggsurvplot(fit, data = data, conf.int = TRUE,
+            legend.labs = c("spay_neuter = Fixed", "spay_neuter = Intact")) 
+```
 
 
+As expected, animal which were spay neutered, have shorter survival time, that
+means they were adopted faster
