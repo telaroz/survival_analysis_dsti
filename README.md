@@ -27,6 +27,8 @@ has more options overall.
 Also works without issue in multiple programming languages, so you can combine
 for example R and Python code in the same document.
 
+To render a pdf you might night to run `quarto install tinytex` in the terminal
+
 ## Data used
 
 Data taken from [Kaggle](https://www.kaggle.com/competitions/sliced-s01e10-playoffs-2/data?select=train.csv).
