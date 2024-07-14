@@ -1,22 +1,22 @@
 ---
 title: "Survival Analysis Project"
-format: html
+format: pdf
 editor: visual
 execute:
   message: false
   warning: false
 ---
 
-Project outline: 
-- Prepare data
-- Short EDA
-- Perform analysis with multiple methods (4-5-6)
-- Chose 2-3
-- Chose what to keep (maximum 9 pages)
-  - What code do we keep? Should we show all the code?
-  - How much of the EDA is finally important?
-  - Which methods with which plots are we keeping?
-  
+Project outline:
+
+-   Prepare data
+-   Short EDA
+-   Perform analysis with multiple methods (4-5-6)
+-   Chose 2-3
+-   Chose what to keep (maximum 9 pages)
+    -   What code do we keep? Should we show all the code?
+    -   How much of the EDA is finally important?
+    -   Which methods with which plots are we keeping?
 
 # Introduction
 
@@ -35,7 +35,7 @@ Data dictionary - id: unique id for each animal
 
 # Data preparation
 
-##  Load necessary libraries
+## Load necessary libraries
 
 ```{r}
 # Packages for data preparation
@@ -48,16 +48,16 @@ library(gt)
 library(survival)
 library(survminer)
 
-raW_data <- read_csv("data/train.csv")
+raw_data <- read_csv("data/train.csv")
 ```
 
 ## EDA
 
 ```{r}
-raW_data |> 
+raw_data |> 
   summary()
 
-skim(raW_data)
+skim(raw_data)
 ```
 
 The variables `breed` and `color` have too many different combinations, so we remove them from our data, as they will not be useful for our models.
@@ -65,15 +65,15 @@ The variables `breed` and `color` have too many different combinations, so we re
 Let's see more details on the `animal_type`, `sex` and `spay_neuter`.
 
 ```{r}
-raW_data |> 
+raw_data |> 
   count(animal_type) |> 
   gt()
 
-raW_data |> 
+raw_data |> 
   count(sex) |> 
   gt()
 
-raW_data |> 
+raw_data |> 
   count(spay_neuter) |> 
   gt()
 
@@ -85,112 +85,102 @@ We keep these variables.
 We see that we have names for 69.8% of the animals. We can create a variable for this: `has_name`, a dummy variable is there is a name or not.
 
 ```{r}
-raW_data <- raW_data |> 
+raw_data <- raw_data |> 
   mutate(has_name = !is.na(name)) # If not NA, then it has a name. 
 ```
 
-Also, let's treat the `animal_type` and `sex` variables as integers, so they can
-enter the model
+Also, let's treat the `animal_type` and `sex` variables as integers, so they can enter the model
 
 ```{r}
-raW_data <- raW_data |> 
+raw_data <- raw_data |> 
   mutate(integer_sex = as.integer(as.factor(sex)),
          integer_animal_type = as.integer(as.factor(animal_type)))
 ```
 
-
-Lastly, we will work with `spay_neuter` as our grouping variable. We would like
-to verify if there are differences in adoption times if the animal is spay 
-neutered or not. If we have an `Unknown` in the variable, we will encode it as
-`Intact`, as knowing for sure how the animal has been handled is important. 
+Lastly, we will work with `spay_neuter` as our grouping variable. We would like to verify if there are differences in adoption times if the animal is spay neutered or not. If we have an `Unknown` in the variable, we will encode it as `Intact`, as knowing for sure how the animal has been handled is important.
 
 ```{r}
-raW_data <- raW_data |> 
+raw_data <- raw_data |> 
   mutate(spay_neuter = if_else(spay_neuter == "Unknown", "Intact", spay_neuter),
          integer_spay_neuter = as.integer(as.factor(spay_neuter)))
 ```
 
-
 Now let's work with the time variable and our outcome variable.
 
 ```{r}
-raW_data |> 
+raw_data |> 
   count(outcome_type) |> 
   gt()
 ```
 
-We would like to model which animals were adopted, so we make a new variable
-`outcome` for which we take `1` for adoption and `0` for no adoption.
+We would like to model which animals were adopted, so we make a new variable `outcome` for which we take `1` for adoption and `0` for no adoption.
 
 ```{r}
-raW_data <- raW_data |> 
+raw_data <- raw_data |> 
   mutate(outcome = if_else(outcome_type == "adoption", 1, 0))
 ```
 
-For the duration data, we have the `age_upon_outcome` which is the difference
-between `date_of_birth` and `datetime` but this is not numeric, so let's create
-our own variable
+For the duration data, we have the `age_upon_outcome` which is the difference between `date_of_birth` and `datetime` but this is not numeric, so let's create our own variable
 
 ```{r}
-raW_data <- raW_data |> 
+raw_data <- raw_data |> 
   mutate(time_to_outcome = as.Date(datetime) - date_of_birth)
 ```
 
 ```{r}
-raW_data |> 
+raw_data |> 
   filter(time_to_outcome < 0) |> 
   gt()
 ```
-We have some negative values, which makes no sense as the date_of_birth should 
-come before the outcome, so we remove these observations.
+
+We have some negative values, which makes no sense as the date_of_birth should come before the outcome, so we remove these observations.
 
 ```{r}
-raW_data <- raW_data |> 
+raw_data <- raw_data |> 
   filter(time_to_outcome >= 0)
 ```
 
-Let's look at the encoding for sex, spay_neuter and animal_type before we
-go on analyzing with our clean data. 
+Let's look at the encoding for sex, spay_neuter and animal_type before we go on analyzing with our clean data.
 
 ```{r}
-raW_data |> 
+raw_data |> 
   count(integer_animal_type, animal_type) |> 
   gt()
 
-raW_data |> 
+raw_data |> 
   count(integer_sex, sex) |> 
   gt()
 
-raW_data |> 
+raw_data |> 
   count(integer_spay_neuter, spay_neuter) |> 
   gt()
 ```
 
-
 Now we chose the variable we will use as a clean data.
-*******************************************************************
+
+\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+
 We could also keep the raw character variables as was done in class
-*******************************************************************
+
+\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
 
 ```{r}
-data <- raW_data |> 
+data <- raw_data |> 
   select(id, animal_type = integer_animal_type, sex = integer_sex, 
          spay_neuter = integer_spay_neuter,
          has_name, outcome, time_to_outcome) |> 
   mutate(id = as.character(id))
 ```
 
-
 # Statistical Analysis
 
 Example options given by instructions:
 
-- nonparametric estimation of survival for one or more groups
+-   nonparametric estimation of survival for one or more groups
 
-- nonparametric comparison of 2 or more groups
+-   nonparametric comparison of 2 or more groups
 
-- semi-parametric Cox regression
-
+-   semi-parametric Cox regression
 
 ## Multivariate Cox regression
 
@@ -198,14 +188,14 @@ Example options given by instructions:
 cox_model <- coxph(Surv(time_to_outcome, outcome) ~ animal_type + sex + spay_neuter, data = data)
 summary(cox_model)
 ```
+
 Let's see our predicted survival proportion for the whole data.
 
 ```{r}
 ggsurvplot(survfit(cox_model), data = data)
 ```
 
-Now, we can verify how this survival changes depending on the `spay_neuter`
-variable.
+Now, we can verify how this survival changes depending on the `spay_neuter` variable.
 
 ```{r}
 # Prediction
@@ -219,6 +209,4 @@ ggsurvplot(fit, data = data, conf.int = TRUE,
             legend.labs = c("spay_neuter = Fixed", "spay_neuter = Intact")) 
 ```
 
-
-As expected, animal which were spay neutered, have shorter survival time, that
-means they were adopted faster
+As expected, animal which were spay neutered, have shorter survival time, that means they were adopted faster
