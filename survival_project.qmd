@@ -7,6 +7,19 @@ execute:
   warning: false
 ---
 
+Project outline: 
+- Prepare data
+- Short EDA
+- Perform analysis with multiple methods (4-5-6)
+- Chose 2-3
+- Chose what to keep (maximum 9 pages)
+  - What code do we keep? Should we show all the code?
+  - How much of the EDA is finally important?
+  - Which methods with which plots are we keeping?
+  
+
+# Introduction
+
 Data dictionary - id: unique id for each animal
 
 -   age_upon_outcome: age of the animal when the outcome was determined
@@ -20,17 +33,20 @@ Data dictionary - id: unique id for each animal
 -   sex: sex of the animal
 -   spay_neuter: whether the animal was spayed or neutered: intact or fixed
 
-# Load necessary libraries
+# Data preparation
+
+##  Load necessary libraries
 
 ```{r}
 library(tidymodels)
 library(readr)
 library(skimr)
+library(gt)
 
 raW_data <- read_csv("data/train.csv")
 ```
 
-# EDA
+## EDA
 
 ```{r}
 raW_data |> 
@@ -45,13 +61,16 @@ Let's see more details on the `animal_type`, `sex` and `spay_neuter`.
 
 ```{r}
 raW_data |> 
-  count(animal_type)
+  count(animal_type) |> 
+  gt()
 
 raW_data |> 
-  count(sex)
+  count(sex) |> 
+  gt()
 
 raW_data |> 
-  count(spay_neuter)
+  count(spay_neuter) |> 
+  gt()
 
 
 ```
@@ -69,7 +88,8 @@ Now let's work with the time variable and our outcome variable.
 
 ```{r}
 raW_data |> 
-  count(outcome_type)
+  count(outcome_type) |> 
+  gt()
 ```
 
 We would like to model which animals were adopted, so we make a new variable
@@ -90,7 +110,7 @@ raW_data <- raW_data |>
 ```
 
 ```{r}
-raW_data |> filter(time_to_outcome < 0)
+raW_data |> filter(time_to_outcome < 0) |> gt()
 ```
 We have some negative values, which makes no sense as the date_of_birth should 
 come before the outcome, so we remove these observations.
@@ -109,4 +129,17 @@ data <- raW_data |>
   mutate(id = as.character(id))
   
 ```
+
+# Statistical Analysis
+
+Example options given by instructions:
+
+- nonparametric estimation of survival for one or more groups
+
+- nonparametric comparison of 2 or more groups
+
+- semi-parametric Cox regression
+
+
+
 
