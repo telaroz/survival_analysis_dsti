@@ -159,6 +159,73 @@ Within the animals, there is not a difference that seems to be important accordi
 
 [^1]: The cross tables for the variables `sex`, `animal_type` and `has_name`, see appendix 1.
 
+## Method to take into account the colors
+
+We have too many colors but we could expect this feature to have a significant impact on the choice to adopt or not. We can build some subcategories then, in order to reduce the number of possible values and be able to take into account the embedded information. We try two kind of grouping : by number of colors and by intensity of shade.\
+
+```{r}
+#install.packages("stringr")
+library(stringr)
+
+# Define a function to count the number of colors
+count_colors <- function(color) {
+  if (color == "Tricolor") {
+    return (3)
+  } else { return(str_count(color, "/") + 1)}
+}
+
+# Define a function to classify colors by shade intensity
+classify_color <- function(color) {
+  # Convert color to lowercase to handle case sensitivity
+  color <- tolower(color)
+  
+  # Define categories based on shade intensity
+  if (grepl("white|cream|buff|apricot|yellow|fawn|pink", color)) {
+    return("Light")
+  } else if (grepl("tan|gray|brown|silver|gold|green|blue|orange", color)) {
+    return("Medium")
+  } else if (grepl("black|chocolate|red|sable|tricolor|calico", color)) {
+    return("Dark")
+  } else {
+    return("Unknown")
+  }
+}
+```
+
+```{r}
+# Create new columns in the dataframe with the count of colors and the shade intensity of colors
+data2 <- raw_data |>
+  mutate(color_count = sapply(color, count_colors),
+         color_shade_intens = sapply(color, classify_color)
+         )
+
+#Define color_count and color_shade_intens as factor
+data2 <- data2 |>
+  mutate(color_count = as.factor(color_count),
+         color_shade_intens = as.factor(color_shade_intens))
+
+# Display the first few rows of the updated dataset to ensure the new columns are added correctly
+head(data2)
+```
+
+By looking at the repartition of the enriched dataset, it seems that having extreme color (light or dark) or having more colors increase the chance of adoption.
+
+```{r}
+#| echo: false
+
+data2 <- data2 |> 
+  select(id, time_to_outcome, animal_type, has_name, sex, spay_neuter,outcome, color_count, color_shade_intens) |> 
+  mutate(id = as.character(id))
+
+dplyr::glimpse(data)
+
+#TODO: add table name
+tbl_cross(data2, row = color_count, col = outcome,percent = c("row"), digits = 0)|>   bold_labels()
+
+tbl_cross(data2, row = color_shade_intens, col = outcome,percent = c("row"), digits = 0)|> 
+  bold_labels()
+```
+
 # Statistical Analysis
 
 The next graph is the survival curve and the cumulative hazard function, for this data:
@@ -191,18 +258,37 @@ Example options given by instructions:
 
 ## Nonparametric methods for censored data
 
-Using the Kaplan-Meyer estimator (KM) methodology we can see that the median survival time is 749 days (in this particular case the time from birth to adoption, and it's about 2 years). If we estimate the probability of not being adopted when the animal is (at least) one year old, we see that this value is 71.9%.
+Using the Kaplan-Meyer estimator (KM) methodology we can see that the median survival time is 749 days (in this particular case the time from birth to adoption, and it's about 2 years). If we estimate the probability of not being adopted when the animal is (at least) one year old, we see that this value is 71.9%. We get similar results with Fleming−Harrington estimator.
 
 ```{r}
-KM <- survfit(Surv(time_to_outcome, outcome) ~ 1 , data = data[,-1]) 
-KM 
+fit.KM <- survfit(Surv(time_to_outcome, outcome) ~ 1 , data = data[,-1]) 
+fit.KM
+fit.NA <- survfit(Surv(time_to_outcome, outcome) ~ 1 , data = data[,-1], type = "fleming-harrington") 
+fit.NA
 
-plot(KM, mark.time = TRUE, main = "Kaplan-Meier estimator",
+plot(fit.KM, mark.time = TRUE, main = "Kaplan-Meier estimator",
+     ylab = 'Survival probability',
+     xlab = 'time(days)')
+plot(fit.NA, mark.time = TRUE, main = "Fleming−Harrington estimator",
      ylab = 'Survival probability',
      xlab = 'time(days)')
 
 #estimated probability of not being adopted for (at least) 1 year
 summary(KM, time = 365)
+summary(fit.NA, time = 365)
+```
+
+```{r}
+#Other possible graph
+
+## Turn into a data_frame
+data_df <- as_data_frame(data)
+
+## Plot
+ggsurvplot(survfit(Surv(time_to_outcome, outcome) ~ 1,
+                   data = data_df),
+           risk.table = TRUE,
+           break.time.by = 1000)
 ```
 
 ## Nonparametric comparison of groups
@@ -228,6 +314,36 @@ As we can see both in the graph and in the logrank test, there is statistical ev
 In the `has_name` we get also a difference between the curves and it looks like the adoption goes faster for those animal that don't have a name at the moment of adoption. We can perform the same process with other categorical variables[^2].
 
 [^2]: for further information look at Appendix 2
+
+By taking into account the feature color, we get a similar conclusion as the ones reported in the first analysis : color makes a difference & number of colors and having Light/Dark colors may ease the adoption.
+
+```{r}
+#| echo: false
+#TO MOVE IN APPENDIX ?
+
+color_count_comp <- survfit(Surv(time_to_outcome, outcome) ~ color_count, data = data2)
+color_count_comp
+
+plot(color_count_comp,mark.time = T, lty = 2:4,col=2:4)
+legend("right", legend=unique(data2$color_count), col=2:4, lty=2:4, horiz=FALSE,  bty='n')
+
+# The logrank test
+survdiff(Surv(time_to_outcome, outcome) ~ color_count, data = data2)
+```
+
+```{r}
+#| echo: false
+#TO MOVE IN APPENDIX ?
+
+color_shade_intens_comp <- survfit(Surv(time_to_outcome, outcome) ~ color_shade_intens, data = data2)
+color_shade_intens_comp
+
+plot(color_shade_intens_comp,mark.time = T, lty = 2:4,col=2:4)
+legend("right", legend=unique(data2$color_shade_intens), col=2:4, lty=2:4, horiz=FALSE,  bty='n')
+
+# The logrank test
+survdiff(Surv(time_to_outcome, outcome) ~ color_shade_intens, data = data2)
+```
 
 ## Multivariate Cox regression
 
@@ -261,6 +377,64 @@ ggsurvplot(fit, data = data, conf.int = TRUE,
 ```
 
 As expected, animal which were spay neutered, have shorter survival time, that means they were adopted faster.
+
+About the color, Light/Dark shade intensity are not statistically significant here. Having 2 colors makes statistically a significant difference comparing to having 1 color, by increasing the chance by 10%. Furthermore, taking into account the color improve the concordance of the model (from 0.629 to 0.632).
+
+```{r}
+#TO MOVE IN APPENDIX ?
+data2 <- mutate(data2, color_shade_intens = relevel(factor(color_shade_intens), ref = "Medium"))
+cox_model2 <- coxph(Surv(time_to_outcome, outcome) ~ animal_type + has_name + sex + spay_neuter + color_count + color_shade_intens, data = data2)
+summary(cox_model2)
+```
+
+# Model diagnostics
+
+## Martingale residuals
+
+xD :\\ :( !!!!!!!!!!!!!!!!
+
+```{r}
+data$residual <- residuals(cox_model, type = "martingale")
+
+par(mfrow = c(1, 3), mar = c(4.2, 2, 2, 2))
+with(data, {
+
+  plot(time_to_outcome, residual)
+  lines(lowess(time_to_outcome, residual), lwd = 2)
+
+  plot(residual ~ animal_type)
+
+  plot(residual ~ spay_neuter)
+
+})
+```
+
+```{r}
+data2$residual <- residuals(cox_model2, type = "martingale")
+
+par(mfrow = c(1, 3), mar = c(4.2, 2, 2, 2))
+with(data2, {
+
+  plot(time_to_outcome, residual)
+  lines(lowess(time_to_outcome, residual), lwd = 2)
+
+  plot(residual ~ animal_type)
+
+  plot(residual ~ spay_neuter)
+
+})
+```
+
+## Proportionality of hazards
+
+The plots does not look good.\
+H0 (beta = beta(t)) is rejected.
+
+```{r}
+residual.sch <- cox.zph(cox_model)
+residual.sch
+plot(residual.sch)
+```
 
 # Appendix
 
