@@ -258,7 +258,8 @@ Example options given by instructions:
 
 ## Nonparametric methods for censored data
 
-Using the Kaplan-Meyer estimator (KM) methodology we can see that the median survival time is 749 days (in this particular case the time from birth to adoption, and it's about 2 years). If we estimate the probability of not being adopted when the animal is (at least) one year old, we see that this value is 71.9%. We get similar results with Fleming−Harrington estimator.
+Using the Kaplan-Meyer estimator (KM) methodology we can see that the median survival time is 749 days (in this particular case the time from birth to adoption, and it's about 2 years). If we estimate the probability of not being adopted when the animal is one year old, we see that this value is 71.9%.
+We get similar results with Fleming−Harrington estimator.
 
 ```{r}
 fit.KM <- survfit(Surv(time_to_outcome, outcome) ~ 1 , data = data[,-1]) 
@@ -273,13 +274,13 @@ plot(fit.NA, mark.time = TRUE, main = "Fleming−Harrington estimator",
      ylab = 'Survival probability',
      xlab = 'time(days)')
 
-#estimated probability of not being adopted for (at least) 1 year
-summary(KM, time = 365)
+#estimated probability of not being adopted after 1 year
+summary(fit.KM, time = 365)
 summary(fit.NA, time = 365)
 ```
 
 ```{r}
-#Other possible graph
+#***Other possible graph (Number at risk are also displayed)
 
 ## Turn into a data_frame
 data_df <- as_data_frame(data)
@@ -298,59 +299,39 @@ Even if we do not have two groups in the dataset, for example with different tre
 ```{r}
 #| echo: false
 
-sex_comp <- survfit(Surv(time_to_outcome, outcome) ~ sex, data = data)
+#*** Should not it make more sense to analyse with female and male only ?
+#*** => there is no significant difference.
+data_feMalOnly <- data[data$sex != "Unknown", ] # Keep Female and Male only.
+
+sex_comp <- survfit(Surv(time_to_outcome, outcome) ~ sex, data = data_feMalOnly)
+#sex_comp <- survfit(Surv(time_to_outcome, outcome) ~ sex, data = data)
 sex_comp
 
-plot(sex_comp,mark.time = T, lty = 2:4,col=2:4)
-legend("right", legend=unique(data$sex), col=2:4, lty=2:4, horiz=FALSE,  bty='n')
+plot(sex_comp,mark.time = T, lty = 2:3,col=2:3)
+#plot(sex_comp,mark.time = T, lty = 2:4,col=2:4)
+legend("right", legend=sort(unique(data_feMalOnly$sex)), col=2:4, lty=2:4, horiz=FALSE,  bty='n')
+#legend("right", legend=sort(unique(data$sex)), col=2:4, lty=2:4, horiz=FALSE,  bty='n')
 
 # The logrank test
-survdiff(Surv(time_to_outcome, outcome) ~ sex, data = data)
+survdiff(Surv(time_to_outcome, outcome) ~ sex, data = data_feMalOnly)
+#survdiff(Surv(time_to_outcome, outcome) ~ sex, data = data)
 
 ```
 
 As we can see both in the graph and in the logrank test, there is statistical evidence to reject the null hypothesis of equality between curves, and this is due to the fact that although there do not seem to be differences between male and female, in those animals for which the sex is not determined, there do seem to be differences in the time from birth to adoption.
 
 In the `has_name` we get also a difference between the curves and it looks like the adoption goes faster for those animal that don't have a name at the moment of adoption. We can perform the same process with other categorical variables[^2].
+> *** It is the other way round. It is also confirmed by the medians. The legend of the graph needs to be fixed by sorting the labels before displaying them.
 
 [^2]: for further information look at Appendix 2
 
-By taking into account the feature color, we get a similar conclusion as the ones reported in the first analysis : color makes a difference & number of colors and having Light/Dark colors may ease the adoption.
+By taking into account the feature color, we get a similar conclusion as the ones reported in the first analysis : color makes statistically a difference (especially, pets having light color seems to be adopted faster). Number of colors hes statistically an impact on the probability to be adopted even if the survival curves look close and similar.
 
-```{r}
-#| echo: false
-#TO MOVE IN APPENDIX ?
-
-color_count_comp <- survfit(Surv(time_to_outcome, outcome) ~ color_count, data = data2)
-color_count_comp
-
-plot(color_count_comp,mark.time = T, lty = 2:4,col=2:4)
-legend("right", legend=unique(data2$color_count), col=2:4, lty=2:4, horiz=FALSE,  bty='n')
-
-# The logrank test
-survdiff(Surv(time_to_outcome, outcome) ~ color_count, data = data2)
-```
-
-```{r}
-#| echo: false
-#TO MOVE IN APPENDIX ?
-
-color_shade_intens_comp <- survfit(Surv(time_to_outcome, outcome) ~ color_shade_intens, data = data2)
-color_shade_intens_comp
-
-plot(color_shade_intens_comp,mark.time = T, lty = 2:4,col=2:4)
-legend("right", legend=unique(data2$color_shade_intens), col=2:4, lty=2:4, horiz=FALSE,  bty='n')
-
-# The logrank test
-survdiff(Surv(time_to_outcome, outcome) ~ color_shade_intens, data = data2)
-```
-
-## Multivariate Cox regression
+## Semi-parametric multivariate Cox regression
 
 ```{r}
 cox_model <- coxph(Surv(time_to_outcome, outcome) ~ animal_type + has_name + sex + spay_neuter, data = data)
 summary(cox_model)
-
 ```
 
 Let's see our predicted survival proportion for the whole data.
@@ -371,27 +352,26 @@ spay_neutered_data <- tibble(animal_type = c('Dog', 'Dog'),
 
 # Fit a prediction
 fit <- survfit(cox_model, newdata = spay_neutered_data)
-
 ggsurvplot(fit, data = data, conf.int = TRUE,
             legend.labs = c("spay_neuter = Fixed", "spay_neuter = Intact")) 
 ```
 
 As expected, animal which were spay neutered, have shorter survival time, that means they were adopted faster.
 
-About the color, Light/Dark shade intensity are not statistically significant here. Having 2 colors makes statistically a significant difference comparing to having 1 color, by increasing the chance by 10%. Furthermore, taking into account the color improve the concordance of the model (from 0.629 to 0.632).
+About the colors, Light/Dark shade intensity makes statistically a significant difference to be adopted faster comparing to pets having an Unknown intensity (~ 10% more chances).
+Having 1 or 3 colors does not seem to make a difference but, having 2 colors comparing to 1, would increase the chances to be adopted by ~ 10%.
+Having 2 colors makes statistically a significant difference comparing to having 1 color, by increasing the chance by 10%. Furthermore, taking into account the color improve the concordance of the model (from 0.629 to 0.632)[^3].
 
-```{r}
-#TO MOVE IN APPENDIX ?
-data2 <- mutate(data2, color_shade_intens = relevel(factor(color_shade_intens), ref = "Medium"))
-cox_model2 <- coxph(Surv(time_to_outcome, outcome) ~ animal_type + has_name + sex + spay_neuter + color_count + color_shade_intens, data = data2)
-summary(cox_model2)
-```
+[^3]: for further information look at Appendix 3
 
 # Model diagnostics
 
 ## Martingale residuals
 
-xD :\\ :( !!!!!!!!!!!!!!!!
+The residuals are not well formed. Furthermore, the plot of proportionality of the hazards does not look good : H0 (beta = beta(t)) is rejected.
+The model would not be validated although the results of the analyses of the model are consistent to what we could have expected. [^4].
+
+[^4]: for further information look at Appendix 4
 
 ```{r}
 data$residual <- residuals(cox_model, type = "martingale")
@@ -407,33 +387,6 @@ with(data, {
   plot(residual ~ spay_neuter)
 
 })
-```
-
-```{r}
-data2$residual <- residuals(cox_model2, type = "martingale")
-
-par(mfrow = c(1, 3), mar = c(4.2, 2, 2, 2))
-with(data2, {
-
-  plot(time_to_outcome, residual)
-  lines(lowess(time_to_outcome, residual), lwd = 2)
-
-  plot(residual ~ animal_type)
-
-  plot(residual ~ spay_neuter)
-
-})
-```
-
-## Proportionality of hazards
-
-The plots does not look good.\
-H0 (beta = beta(t)) is rejected.
-
-```{r}
-residual.sch <- cox.zph(cox_model)
-residual.sch
-plot(residual.sch)
 ```
 
 # Appendix
@@ -463,7 +416,7 @@ has_name_comp <- survfit(Surv(time_to_outcome, outcome) ~ has_name, data = data)
 has_name_comp  
 
 plot(has_name_comp,mark.time = T, lty = 2:3,col=2:3) 
-legend("right", legend=unique(data$has_name), col=2:3, lty=2:3, horiz=FALSE,  bty='n') 
+legend("right", legend=sort(unique(data$has_name)), col=2:3, lty=2:3, horiz=FALSE,  bty='n') 
 ```
 
 Variable `animal_type`
@@ -473,7 +426,7 @@ type_comp <- survfit(Surv(time_to_outcome, outcome) ~ animal_type, data = data)
 type_comp
 
 plot(type_comp,mark.time = T, lty = 2:6,col=2:6)
-legend("right", legend=unique(data$animal_type), col=2:6, lty=2:6, horiz=FALSE,  bty='n')
+legend("right", legend=sort(unique(data$animal_type)), col=2:6, lty=2:6, horiz=FALSE,  bty='n')
 
 # The logrank test
 survdiff(Surv(time_to_outcome, outcome) ~ animal_type, data = data)
@@ -486,8 +439,73 @@ spay_neuter_comp <- survfit(Surv(time_to_outcome, outcome) ~ spay_neuter, data =
 spay_neuter_comp
 
 plot(spay_neuter_comp,mark.time = T, lty = 2:3,col=2:3)
-legend("right", legend=unique(data$spay_neuter), col=2:3, lty=2:3, horiz=FALSE,  bty='n')
+legend("right", legend=sort(unique(data$spay_neuter)), col=2:3, lty=2:3, horiz=FALSE,  bty='n')
 
 # The logrank test
 survdiff(Surv(time_to_outcome, outcome) ~ spay_neuter, data = data)
+```
+
+```{r}
+#| echo: false
+
+color_count_comp <- survfit(Surv(time_to_outcome, outcome) ~ color_count, data = data2)
+color_count_comp
+
+plot(color_count_comp,mark.time = T, lty = 2:4,col=2:4)
+legend("right", legend=sort(unique(data2$color_count)), col=2:4, lty=2:4, horiz=FALSE,  bty='n')
+
+# The logrank test
+survdiff(Surv(time_to_outcome, outcome) ~ color_count, data = data2)
+```
+
+```{r}
+#| echo: false
+
+color_shade_intens_comp <- survfit(Surv(time_to_outcome, outcome) ~ color_shade_intens, data = data2)
+color_shade_intens_comp
+
+plot(color_shade_intens_comp,mark.time = T, lty = 2:4,col=2:4)
+legend("right", legend=sort(unique(data2$color_shade_intens)), col=2:4, lty=2:4, horiz=FALSE,  bty='n')
+
+# The logrank test
+survdiff(Surv(time_to_outcome, outcome) ~ color_shade_intens, data = data2)
+```
+
+## Appendix 3: Semi-parametric multivariate Cox regression
+
+```{r}
+data2 <- mutate(data2,
+                animal_type  = relevel(factor(animal_type ), ref = "Other"),
+                color_shade_intens = relevel(factor(color_shade_intens), ref = "Unknown"))
+cox_model2 <- coxph(Surv(time_to_outcome, outcome) ~ animal_type + has_name + sex + spay_neuter + color_count + color_shade_intens, data = data2)
+summary(cox_model2)
+```
+
+Appendix 4: Model validation
+
+```{r}
+data2$residual <- residuals(cox_model2, type = "martingale")
+
+par(mfrow = c(1, 3), mar = c(4.2, 2, 2, 2))
+with(data2, {
+
+  plot(time_to_outcome, residual)
+  lines(lowess(time_to_outcome, residual), lwd = 2)
+
+  plot(residual ~ animal_type)
+
+  plot(residual ~ spay_neuter)
+
+})
+```
+
+## Proportionality of hazards
+
+The plots do not look good.\
+H0 (beta = beta(t)) is rejected.
+
+```{r}
+residual.sch <- cox.zph(cox_model)
+residual.sch
+plot(residual.sch)
 ```
