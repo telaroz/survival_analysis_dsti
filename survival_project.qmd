@@ -339,7 +339,9 @@ However, using all these covariates may not be the best choice to get the best m
 
 ### Prediction
 
-A model can be used in two main ways : to analyze or study interactions between the covariates like we did or to predict. Let's see our predicted survival proportion for the whole data. We can see that the estimated probability of not being adopted within 1 year is slightly higher (71.4%) than the one of KM model (70.8%) but they remain close.
+A model can be used in two main ways : to analyze or study interactions between the covariates like we did or to predict. Let's see our predicted survival proportion for the whole data. We can see that the estimated probability of not being adopted within 1 year is slightly higher (71.4%) than the one of KM model (70.8%) but they remain close.[^8]
+
+[^8]: for further information look at Appendix 3.
 
 Now, we can also do a prediction and verify how this survival changes depending on the `spay_neuter` variable for example.
 
@@ -349,11 +351,11 @@ As expected, animal which were spay neutered (Fixed), have shorter survival time
 
 After getting these model, we should verify the assumptions of these model. Let's do it for the Cox model for example.
 
-## Martingale residuals
+## Martingale residuals and Proportionality of hazards
 
-The residuals are not so well formed (not around 0). There are many outliers. Schoenfeld residuals are far from zero and not in the boundaries. Furthermore, the plot of proportionality of the hazards does not look good : H0 (beta = beta(t)) is rejected. We can try stratification or truncate to fix that. However, stratification did not make the assumption validation better[^8].
+The residuals are not so well formed (not around 0). There are many outliers. Schoenfeld residuals are far from zero and not in the boundaries. Furthermore, the plot of proportionality of the hazards does not look good : H0 (beta = beta(t)) is rejected. We can try stratification or truncate to fix that. However, stratification did not make the assumption validation better[^9].
 
-[^8]: for further information look at Appendix 4
+[^9]: for further information look at Appendix 4
 
 The model would not be validated from a theoretical point of view, although the results of our previous analyses of the models seem very consistent to the behaviors that we could have expected a priori. Indeed, conclusions of the analyses seem also consistent to what we may observe in reality for pet adoption. We could conclude by take all previous results with cautious and also remind this common aphorism: "All models are wrong, but some are useful", George E. P. Box
 
