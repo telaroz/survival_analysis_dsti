@@ -2,23 +2,23 @@
 title: "Survival Analysis Project"
 format: pdf
 editor: visual
+author:
+  - "Luciano Costa"
+  - "Marius Akre"
+  - "Stefanny Peraza"
+  - "Valery Zuñiga"
 execute:
   message: false
   warning: false
 ---
 
-Project outline:
-
--   Introduction
--   Prepare data
--   Short EDA
--   Perform analysis with multiple methods (4-5-6)
--   Chose 2-3
--   Chose what to keep (maximum 9 pages)
-
 # Introduction
 
-In terms of survival analysis, the objective of this project is to determine the "risk" that pets in an animal shelter have of being adopted (or even duration in the shelter), based on different characteristics that are available in the chosen data set. It is worth mentioning that the data contains different outcomes for the animals: adoption, transfer, or no outcome. However, in our case we will only use a dichotomous output indicating whether it was adopted or not. The data ends on February 1st, 2018, after which date it is not known what happens to the animals.
+For this analysis we wanted to work with a dataset different from health issues, and try to apply what we learned to other areas. In this case we took data related to animals in a shelter and their adoption[^1]. It should be mentioned that the data frame does not contain the date of entry of the animals to the shelter, but the date of birth, so we had to adapt to the available data, since we really wanted to apply the analysis in another area, and therefore the results will be more a function of the age that an animal has before it is adopted, given that it is in the shelter.
+
+[^1]: Data taken from [Kaggle](https://www.kaggle.com/competitions/sliced-s01e10-playoffs-2/data?select=train.csv). We only use the `train.csv` data.
+
+In terms of survival analysis, the objective of this project is to determine the "risk" that pets in an animal shelter have of being adopted , based on different characteristics that are available in the chosen data set. It is worth mentioning that the data contains different outcomes for the animals: adoption, transfer, or no outcome. However, in our case we will only use a dichotomous output indicating whether it was adopted or not. The data ends on February 1st, 2018, after which date it is not known what happens to the animals.
 
 We will also analyze how the following variables, when possible to include them, may influence the adoption or non-adoption of the animals.
 
@@ -41,8 +41,6 @@ Data dictionary:
 ```{r}
 #| echo: false
 
-
-
 # Packages for data preparation
 #install.packages("stringr")
 library(dplyr)
@@ -61,35 +59,36 @@ raw_data <- read_csv("data/train.csv")
 
 ## EDA
 
-At a quick glance at the data, we observe that in the case of categorical variables we will have to make modifications in order to be able to work with them, for example in the case of breed, color and name we have too many different types or levels, which would be impossible to use them all. The variable name, on the other hand, has a significant number of null values.
+At a quick glance at the data, we observe that in the case of categorical variables we will have to make modifications in order to be able to work with them, for example in the case of breed, color and name we have too many different types or levels, which would make it impossible to use them all. The variable name, on the other hand, has a significant number of null values.
 
 ```{r}
 #| echo: false
-
-#raw_data |> 
-#  summary()
-
+#| fig.width: 9
+#| fig.height: 3
 skim(raw_data) |>
   filter(skim_type == "character")
 ```
 
 In order to be able to work with this data, these will be the first modifications we will make:
 
--   Since the variables `breed` and `color` have too many different combinations, we will remove them from our data, they will not be useful for our models.
+-   Since the variables `breed` and `color` have too many different combinations, we will remove breed from our data, and work a bit in a color categorization that allows us to use it.
 
 -   We have names for 69.8% of the animals, so in order to use it, we will create a dummy variable `has_name`, a variable that indicates that if there is a name or not.
 
--   Also, we decided to treat the `animal_type` and `sex` variables as factors, so they can enter the model.
+-   Also, we decided to treat the `animal_type` and `sex` variables as factors, so they can enter the model like that.
 
 -   For the duration data, we have the `age_upon_outcome` which is the difference between `date_of_birth` and `datetime` but this is not numeric, so we create our own variable `time_to_outcome`.
 
--   We will work with `spay_neuter` as our grouping variable. We would like to verify if there are differences in adoption times if the animal is spay neutered or not. If we have an `Unknown` in the variable, we will remove the corresponding records as we do not know the information. Furthermore we do not have the sex of those records neither and most of them have early no outcome (i.e. early euthanized, died) in the range of `time_to_outcome` values. Therefore they may impact significantly our analyses while we do not have any information on their `sex` and `spay_neuter` to make reliable interpretation. Those `Unknown` records represent 8% of the dataset and we still keep almost 50 000 records after these removals.[^1]
+-   We will work with `spay_neuter` as our grouping variable. We would like to verify if there are differences in adoption times if the animal is spay neutered or not. If we have an `Unknown` in the variable, we will remove the corresponding records as we do not know the information. Furthermore we do not have the sex of those records neither and most of them have early no outcome (i.e. early euthanized, died) in the range of `time_to_outcome` values. Therefore they may impact significantly our analyses while we do not have any information on their `sex` and `spay_neuter` to make reliable interpretation. Those `Unknown` records represent 8% of the dataset and we still keep almost 50 000 records after these removals.[^2]
 
--   We keep `animal_type` then (`Unknown` `sex` and `spay_neuter` have been removed as described above). The only modification in this case will be that for `animal_type`, since there are only 5 observations in Livestock and it remains only 90 observations in Bird, we will join these categories to Other. In summary we have a majority of dogs and cats, in sex variable 48% of female and 52% of male. In the case of spaying and neutering, we have 74% fixed and 26% classified intact.
+-   We keep `animal_type` (`Unknown` `sex` and `spay_neuter` have been removed as described above). The only modification in this case will be that for `animal_type`, since there are only 5 observations in Livestock and it remains only 90 observations in Bird after the removals, we will join these categories to Other. In summary we have a majority of dogs and cats, where 48% are female and 52% male. In the case of spaying and neutering, we have 74% fixed and 26% classified intact.
+
+[^2]: The cross tables for the variables `sex`, `animal_type`, `has_name`, `color_count`, `color_shade_intens`, details on removed `Unknown` records, details on Kaplan-Meyer and Fleming-harrington estimators : see appendix 1.
 
 ```{r}
 #| echo: false
-
+#| fig.width: 9
+#| fig.height: 3
 raw_data_with_unknown_sex <- raw_data |> 
   mutate(has_name = !is.na(name), # If not NA, then it has a name. 
          sex = as.factor(sex),
@@ -108,7 +107,8 @@ raw_data <- raw_data |>
 
 ```{r}
 #| echo: false
-
+#| fig.width: 9
+#| fig.height: 3
 raw_data |> 
   count(animal_type) |>
   mutate(prop = round(n / sum(n) * 100,1)) |> 
@@ -125,10 +125,12 @@ raw_data |>
   gt()
 ```
 
-In the case of the output variable, where the possibilities are adopted or unadopted, we will create a new variable `outcome` for which we take `1` for adoption and `0` for no adoption.
+In the case of the output variable, where the possibilities are adopted or not, we will create a new variable `outcome` for which we take `1` for adoption and `0` for no adoption.
 
 ```{r}
 #| echo: false
+#| fig.width: 9
+#| fig.height: 3
 raw_data <- raw_data |> 
   mutate(outcome = if_else(outcome_type == "adoption", 1, 0))
 
@@ -141,11 +143,12 @@ raw_data |>
   gt()
 ```
 
-Finally, since we got some negative values for our variable `time_to_outcome` , which makes no sense as the `date_of_birth` should come before the outcome (unless some very rare or demanded type of pets get adopted before they are born), we will remove these five observations (5).
+-   Since we got some negative values for our variable `time_to_outcome` , which makes no sense as the `date_of_birth` should come before the outcome (unless some very rare or demanded type of pets get adopted before they are born), we will remove these five observations (5).
 
 ```{r}
 #| echo: false
-
+#| fig.width: 9
+#| fig.height: 3
 raw_data <- raw_data |> 
   filter(time_to_outcome >= 0)
 
@@ -154,9 +157,7 @@ raw_data_with_unknown_sex <- raw_data_with_unknown_sex |>
 
 ```
 
-## Method to take into account the colors
-
-We have too many colors but we could expect this feature to have a significant impact on the choice to adopt or not. We can build some subcategories then, in order to reduce the number of possible values and be able to take into account the embedded information. We try two kind of grouping : by number of colors and by intensity of shade.
+-   Method to take into account the colors: We have too many colors but we expect this feature to have a significant impact on the choice to adopt or not. So, we build some subcategories in order to reduce the number of possible values and be able to take into account the embedded information. We try two kind of grouping : by number of colors and by intensity of shade.
 
 ```{r, results='hide'}
 #| echo: false
@@ -188,7 +189,8 @@ classify_color <- function(color) {
 
 ```{r, results='hide'}
 #| echo: false
-
+#| fig.width: 9
+#| fig.height: 3
 # Create new columns in the dataframe with the count of colors and the shade intensity of colors
 raw_data <- raw_data |>
   mutate(color_count = sapply(color, count_colors),
@@ -210,14 +212,15 @@ raw_data_with_unknown_sex <- raw_data_with_unknown_sex |>
          color_shade_intens = as.factor(color_shade_intens))
 
 # Display the first few rows of the updated dataset to ensure the new columns are added correctly
-head(raw_data)
+head(raw_data,5)
 ```
 
-Now we chose the variable we will use as a clean data , check that they have the desired formats and do some previous analysis on the variables.
+Now we chose the variable we will use as a clean data, check that they have the desired formats and do some previous analysis on the variables. The final total observation is 49,972.
 
 ```{r, results='hide'}
 #| echo: false
-
+#| fig.width: 9
+#| fig.height: 3
 data <- raw_data |> 
   select(id, time_to_outcome, animal_type, has_name, sex, spay_neuter,outcome, color_count, color_shade_intens) |> 
   mutate(id = as.character(id))
@@ -229,18 +232,18 @@ tbl_cross(data, row = spay_neuter, col = outcome,percent = c("row"), digits = 0)
   bold_labels()
 ```
 
-Within the animals, there is not a difference that seems to be important according to sex, at least not proportionally. In the case of animals with names, more than 75% have been adopted against 34% in the case of those without names. Something similar happens with the animals that have been spayed or neutered, the proportion of adopted animals in this case exceeds 80%, while in the group of those that have not undergone surgery, the percentage of adopted animals is barely 26%. Lastly, dogs are not only the largest number of animals but also have the highest adoption rate, while among cats there is practically half and half between adoptees and non-adoptees, and less adoptees among others type of animals.
-By looking at the distribution of the enriched dataset, it seems that having more number of colors increase the chance of adoption.[^1]
+Within the animals, there is not a difference that seems to be important according to sex, at least not proportionally. In the case of animals with names, more than 77% have been adopted against 34% in the case of those without names. Something similar happens with the animals that have been spayed or neutered, the proportion of adopted animals in this case exceeds 80%, while in the group of those that have not undergone surgery, the percentage of adopted animals is barely 26%. Lastly, dogs are not only the largest number of animals but also have the highest adoption rate, while among cats there is practically half and half between adopted and non-adopted, and among others type there is the lower adoption rate (36%). By looking at the distribution of the enriched dataset, it seems that having more number of colors increase the chance of adoption.[^3]
 
-[^1]: The cross tables for the variables `sex`, `animal_type`, `has_name`, `color_count`, `color_shade_intens`, details on removed `Unknown` records, details on Kaplan-Meyer and Fleming-harrington estimators : see appendix 1.
+[^3]: The cross tables for the variables `sex`, `animal_type`, `has_name`, `color_count`, `color_shade_intens`, details on removed `Unknown` records, details on Kaplan-Meyer and Fleming-harrington estimators : see appendix 1.
 
 # Statistical Analysis
 
 The next graph is the survival curve and the cumulative hazard function, for this data:
 
-```{r out.width="50%"}
+```{r}
 #| echo: false
-
+#| fig.width: 9
+#| fig.height: 4
 #survival object
 so <- survfit(Surv(time_to_outcome, outcome) ~ 1, data =data[,-1] )
 
@@ -257,18 +260,11 @@ ggsurvplot(so, data = data,fun = "cumhaz",
            )
 ```
 
-Example options given by instructions:
-
--   nonparametric estimation of survival for one or more groups
-
--   nonparametric comparison of 2 or more groups
-
--   semi-parametric Cox regression
-
 ## Nonparametric methods for censored data
 
-Using the Kaplan-Meyer estimator (KM) methodology we can see that the median survival time is 106 weeks (in this particular case the time from birth to adoption, and it's about 2 years). If we estimate the probability of not being adopted when the animal is one year old, we see that this value is 70.8%.
-We get similar results with Fleming−Harrington estimator. We will focus on the KM estimator in the following sections then.[^1]
+Using the Kaplan-Meyer estimator (KM) methodology we can see that the median survival time is 106 weeks (in this particular case the time from birth to adoption, and it's about 2 years). If we estimate the probability of not being adopted when the animal is one year old, we see that this value is 70.8% (for further information look at Appendix 2). We get similar results with Fleming−Harrington estimator. We will focus on the KM estimator in the following sections then.[^4]
+
+[^4]: The cross tables for the variables `sex`, `animal_type`, `has_name`, `color_count`, `color_shade_intens`, details on removed `Unknown` records, details on Kaplan-Meyer and Fleming-harrington estimators : see appendix 1.
 
 ## Nonparametric comparison of groups
 
@@ -278,10 +274,8 @@ Even if we do not have two groups in the dataset, for example with different tre
 
 ```{r}
 #| echo: false
-
-sex_comp <- survfit(Surv(time_to_outcome, outcome) ~ sex, data = data[,-1])
-sex_comp
-
+#| fig.width: 9
+#| fig.height: 4.5
 # Turn into a data_frame then plot
 data_df <- as_data_frame(data)
 
@@ -290,8 +284,11 @@ ggsurvplot(survfit(Surv(time_to_outcome, outcome) ~ sex,
            xlab = 'Time (weeks)',
            title = "Kaplan-Meier estimator for Variable sex",
            risk.table = TRUE,
-           risk.table.height = 0.27,
+           risk.table.height = 0.3,
            break.time.by = 145)
+
+sex_comp <- survfit(Surv(time_to_outcome, outcome) ~ sex, data = data[,-1])
+sex_comp
 
 # The logrank test
 survdiff(Surv(time_to_outcome, outcome) ~ sex, data = data)
@@ -299,37 +296,28 @@ survdiff(Surv(time_to_outcome, outcome) ~ sex, data = data)
 
 As we can see both in the graph and in the logrank test, there is no statistical evidence to reject the null hypothesis of equality between Female and Male survival curves. This is consistent with our first basic analyses above on the cross tables. Hence, the sex does not make a statistical significant difference on the survival curves and the probabilities to be adopted.
 
-In the `has_name` we get a difference between the curves and it looks like the adoption goes faster for those animal that don't have a name and are aged less than 2 years old at the moment of adoption. It is the over way round for the older pets. Surprisingly, the logrank test accepts H0 (p > 5% => cures are STATISTICALLY similar).
-This remind us that sometimes, the analysis should not be based only on the p-value (like some scientists thoughts nowadays). we can also look at other information that we have before communicating a final conclusion. 
+In the `has_name` we get a difference between the curves and it looks like the adoption goes faster for those animal that don't have a name and are aged less than 2 years old at the moment of adoption. It is the over way round for the older pets. Surprisingly, the logrank test accepts H0 (p \> 5% =\> cures are STATISTICALLY similar). This remind us that sometimes, the analysis should not be based only on the p-value (like some scientists thoughts nowadays). we can also look at other information that we have before communicating a final conclusion.
 
-We can perform the same process with other categorical variables[^2] :
-- `animal_type` : at least one of the 3 (crossing) survival curves looks different and H0 is rejected : at least one is statistically different. 
-- `spay_neuter` : the 2 survival curves look different and H0 is rejected : they are statistically different.
-- `color_count` : the 3 survival curves look closed BUT H0 is rejected : AT LEAST 1 is STATISTICALLY different.
-- `color_shade_intens` : AT LEAST one of the 4 (crossing) survival curves looks different BUT H0 is accepted : they are STATISTICALLY similar.
+We can perform the same process with other categorical variables[^5] : - `animal_type` : at least one of the 3 (crossing) survival curves looks different and H0 is rejected : at least one is statistically different. - `spay_neuter` : the 2 survival curves look different and H0 is rejected : they are statistically different. - `color_count` : the 3 survival curves look closed BUT H0 is rejected : AT LEAST 1 is STATISTICALLY different. - `color_shade_intens` : AT LEAST one of the 4 (crossing) survival curves looks different BUT H0 is accepted : they are STATISTICALLY similar.
 
-[^2]: for further information look at Appendix 2
+[^5]: for further information look at Appendix 2
 
 ### Nonparametric comparison of more than 2 groups
 
 We could also compare survival between 2 groups controlling for potentially confounding. For example, we could expect that `spay_neuter` feature may have an higher impact on the probability to be adopted for a Female as she is the one who carry their young.
 
-By using stratification on `spay_neuter`, we can indeed see that for Intact `spay_neuter` groups the medians and the survival curves are less close from each other. Furthermore, we can see that the `sex=Female, strata(spay_neuter)=Intact` group has the highest probability (i.e. the lowest chance to be adopted) while it is the other way round within the "Fixed group" : Male are the lowest chance to be adopted.
-However, these results should be taken with cautious as the stratified logrank test display a p value = threshold = 5% (probably due to the fact that they are more pets in the Fixed group where it looks like there are less differences between Female and Male).[^2]
+By using stratification on `spay_neuter`, we can indeed see that for Intact `spay_neuter` groups the medians and the survival curves are less close from each other. Furthermore, we can see that the `sex=Female, strata(spay_neuter)=Intact` group has the highest probability (i.e. the lowest chance to be adopted) while it is the other way round within the "Fixed group" : Male are the lowest chance to be adopted. However, these results should be taken with cautious as the stratified logrank test display a p value = threshold = 5% (probably due to the fact that they are more pets in the Fixed group where it looks like there are less differences between Female and Male).[^6]
+
+[^6]: for further information look at Appendix 2
 
 ## Semi-parametric Cox regression
 
 So far, we have consider non parametric models, i.e. without any assumption on the distribution of the data. Let's have a look on a semi-parametric model now (Cox model), where we will additionally assume some distributions on the covariates but without any type of assumption on the component ratio of hazard.
 
-The Cox model shows that 3 variables are not statistically significant (animal_typeDog, sexMale, color_count3).
-
-About the colors, known shade intensity makes statistically a significant difference to be adopted faster comparing to pets having an Unknown intensity (~ 10% more chances).
-Having 1 or 3 colors does not seem to make a difference but, having 2 colors comparing to 1, would increase the chances to be adopted by +10% to +12%.
-Having 2 colors makes statistically a significant difference comparing to having 1 color, by increasing the chance by 10% to be adopted.
-
 ```{r}
 #| echo: false
-
+#| fig.width: 9
+#| fig.height: 3
 data <- mutate(data,
                 animal_type  = relevel(factor(animal_type ), ref = "Other"),
                 color_shade_intens = relevel(factor(color_shade_intens), ref = "Unknown"))
@@ -339,16 +327,21 @@ cox_model <- coxph(Surv(time_to_outcome, outcome) ~ animal_type + has_name + sex
 summary(cox_model)
 ```
 
+The Cox model shows that 3 variables are not statistically significant (animal_typeDog, sexMale, color_count3), meaning those categories are not significant different from the base category.
+
+About the colors, known shade intensity makes statistically a significant difference to be adopted faster comparing to pets having an Unknown intensity (\~ 10% more chances). Having 1 or 3 colors does not seem to make a difference but, having 2 colors comparing to 1, would increase the chances to be adopted by +10% to +12%. Having 2 colors makes statistically a significant difference comparing to having 1 color, by increasing the chance by 10% to be adopted.
+
 ### Automatic model selection based on AIC
 
-However, using all these covariates may not be the best choice to get the best model (from the AIC criteria point of view for example). By applying an automatic model selection based on AIC we get the conclusion that we should keep all the covariates in addition to an intercept, to have the best model (highest AIC).[^3]
+However, using all these covariates may not be the best choice to get the best model (from the AIC criteria point of view for example). By applying an automatic model selection based on AIC we get the conclusion that we should keep all the covariates in addition to an intercept, to have the best model (highest AIC).[^7]
 
-[^3]: for further information look at Appendix 3
+[^7]: for further information look at Appendix 3
 
 ### Prediction
 
-A model can be used in two main ways : to analyze or study interactions between the covariates like we did or to predict. Let's see our predicted survival proportion for the whole data.
-We can see that the estimated probability of not being adopted after 1 year is slightly higher (71.4%) than the one of KM model (70.8) but they remain close.
+A model can be used in two main ways : to analyze or study interactions between the covariates like we did or to predict. Let's see our predicted survival proportion for the whole data. We can see that the estimated probability of not being adopted within 1 year is slightly higher (71.4%) than the one of KM model (70.8%) but they remain close.[^8]
+
+[^8]: for further information look at Appendix 3.
 
 Now, we can also do a prediction and verify how this survival changes depending on the `spay_neuter` variable for example.
 
@@ -358,15 +351,13 @@ As expected, animal which were spay neutered (Fixed), have shorter survival time
 
 After getting these model, we should verify the assumptions of these model. Let's do it for the Cox model for example.
 
-## Martingale residuals
+## Martingale residuals and Proportionality of hazards
 
-The residuals are not so well formed (not around 0). There are many outliers. Schoenfeld residuals are far from zero and not in the boundaries. Furthermore, the plot of proportionality of the hazards does not look good : H0 (beta = beta(t)) is rejected.
-We can try stratification or truncate to fix that. However, stratification did not make the assumption validation better[^4].
+The residuals are not so well formed (not around 0). There are many outliers. Schoenfeld residuals are far from zero and not in the boundaries. Furthermore, the plot of proportionality of the hazards does not look good : H0 (beta = beta(t)) is rejected. We can try stratification or truncate to fix that. However, stratification did not make the assumption validation better[^9].
 
-The model would not be validated from a theoretical point of view, although the results of our previous analyses of the models seem very consistent to the behaviors that we could have expected a priori. Indeed, conclusions of the analyses seem also consistent to what we may observe in reality for pet adoption.
-We could conclude by take all previous results with cautious and also remind this common aphorism: "All models are wrong, but some are useful", George E. P. Box
+[^9]: for further information look at Appendix 4
 
-[^4]: for further information look at Appendix 4
+The model would not be validated from a theoretical point of view, although the results of our previous analyses of the models seem very consistent to the behaviors that we could have expected a priori. Indeed, conclusions of the analyses seem also consistent to what we may observe in reality for pet adoption. We could conclude by take all previous results with cautious and also remind this common aphorism: "All models are wrong, but some are useful", George E. P. Box
 
 # Appendix
 
@@ -374,12 +365,16 @@ We could conclude by take all previous results with cautious and also remind thi
 
 ```{r}
 #| echo: false
-
+#| fig.width: 9
+#| fig.height: 3
 #TODO: add tables names
 tbl_cross(data, row = has_name, col = outcome,percent = c("row"), digits = 0)|> 
   bold_labels()
 
-tbl_cross(data, row = sex, col = outcome,percent = c("col"), digits = 0)|> 
+tbl_cross(data, row = sex, col = outcome,percent = c("row"), digits = 0)|> 
+  bold_labels()
+
+tbl_cross(data, row = spay_neuter, col = outcome,percent = c("row"), digits = 0)|> 
   bold_labels()
 
 tbl_cross(data, row = animal_type, col = outcome,percent = c("row"), digits = 0)|> 
@@ -391,7 +386,14 @@ tbl_cross(data, row = color_count, col = outcome,percent = c("row"), digits = 0)
 tbl_cross(data, row = color_shade_intens, col = outcome,percent = c("row"), digits = 0)|> 
   bold_labels()
 
-#Cross tables details for Unknown sex (removed from the final dataset)
+```
+
+**Cross tables details for Unknown sex (removed from the final dataset), after removing the negative values for our variable `time_to_outcome (-5)`.**
+
+```{r}
+#| echo: false
+#| fig.width: 9
+#| fig.height: 3
 tbl_cross(raw_data_with_unknown_sex, row = outcome, col = sex,percent = c("col"), digits = 0)|> bold_labels()
 tbl_cross(raw_data_with_unknown_sex, row = animal_type, col = sex,percent = c("col"), digits = 0)|> bold_labels()
 tbl_cross(raw_data_with_unknown_sex, row = has_name, col = sex,percent = c("col"), digits = 0)|> bold_labels()
@@ -400,12 +402,13 @@ tbl_cross(raw_data_with_unknown_sex, row = color_count, col = sex,percent = c("c
 tbl_cross(raw_data_with_unknown_sex, row = color_shade_intens, col = sex,percent = c("col"), digits = 0)|>  bold_labels()
 
 
-tbl_cross(raw_data_with_unknown_sex, row = outcome, col = sex,percent = c("row"), digits = 0)|> bold_labels()
-tbl_cross(raw_data_with_unknown_sex, row = animal_type, col = sex,percent = c("row"), digits = 0)|> bold_labels()
-tbl_cross(raw_data_with_unknown_sex, row = has_name, col = sex,percent = c("row"), digits = 0)|> bold_labels()
-tbl_cross(raw_data_with_unknown_sex, row = spay_neuter, col = sex,percent = c("row"), digits = 0)|> bold_labels()
-tbl_cross(raw_data_with_unknown_sex, row = color_count, col = sex,percent = c("row"), digits = 0)|> bold_labels()
-tbl_cross(raw_data_with_unknown_sex, row = color_shade_intens, col = sex,percent = c("row"), digits = 0)|>  bold_labels()
+#I think these are duplicated
+# tbl_cross(raw_data_with_unknown_sex, row = outcome, col = sex,percent = c("row"), digits = 0)|> bold_labels()
+# tbl_cross(raw_data_with_unknown_sex, row = animal_type, col = sex,percent = c("row"), digits = 0)|> bold_labels()
+# tbl_cross(raw_data_with_unknown_sex, row = has_name, col = sex,percent = c("row"), digits = 0)|> bold_labels()
+# tbl_cross(raw_data_with_unknown_sex, row = spay_neuter, col = sex,percent = c("row"), digits = 0)|> bold_labels()
+# tbl_cross(raw_data_with_unknown_sex, row = color_count, col = sex,percent = c("row"), digits = 0)|> bold_labels()
+# tbl_cross(raw_data_with_unknown_sex, row = color_shade_intens, col = sex,percent = c("row"), digits = 0)|>  bold_labels()
 
 #tbl_cross(raw_data_with_unknown_sex, row = time_to_outcome, col = sex,percent = c("col"), digits = 0)|>  bold_labels()
 #tbl_cross(raw_data_with_unknown_sex, row = time_to_outcome, col = sex,percent = c("row"), digits = 0)|>  bold_labels()
@@ -429,7 +432,8 @@ ggplot(df, aes(x = Value)) +
 
 ```{r}
 #| echo: false
-
+#| fig.width: 9
+#| fig.height: 4.5
 cat('\n', '*** Kaplan-Meier estimator ***', '\n')
 fit.KM <- survfit(Surv(time_to_outcome, outcome) ~ 1 , data = data[,-1]) 
 fit.KM
@@ -437,32 +441,39 @@ cat('\n', '*** Fleming-harrington estimator ***', '\n')
 fit.NA <- survfit(Surv(time_to_outcome, outcome) ~ 1 , data = data[,-1], type = "fleming-harrington") 
 fit.NA
 
+cat('\n', '*** stimated probability of not being adopted within 1 year old ***', '\n')
+summary(fit.KM, time = 52)
+summary(fit.NA, time = 52)
+
 cat('\n', '*** Kaplan-Meier and Fleming−Harrington estimators ***', '\n')
+
+par(mfrow=c(1,2))
 ggsurvplot(survfit(Surv(time_to_outcome, outcome) ~ 1,
                    data = data_df), ## Need to use a dataframe to plot with ggsurvplot
            xlab = 'Time (weeks)',
            title = "Kaplan-Meier estimator",
            risk.table = TRUE,
+           risk.table.height = 0.25,
            break.time.by = 145)
+
 ggsurvplot(survfit(Surv(time_to_outcome, outcome) ~ 1,
                    data = data_df,
                    type = "fleming-harrington"),
            xlab = 'Time (weeks)',
            title = "Fleming-harrington estimator",
            risk.table = TRUE,
+           risk.table.height = 0.25,
            break.time.by = 145)
-
-#Estimated probability of not being adopted after 1 year
-summary(fit.KM, time = 52)
-summary(fit.NA, time = 52)
 ```
 
 ### comparison of groups
 
-Variable `has_name`
+#### **Variable `has_name`**
 
 ```{r}
-
+#| echo: false
+#| fig.width: 9
+#| fig.height: 4.5
 has_name_comp <- survfit(Surv(time_to_outcome, outcome) ~ has_name, data = data[,-1])
 
 has_name_comp  
@@ -472,16 +483,19 @@ ggsurvplot(survfit(Surv(time_to_outcome, outcome) ~ has_name,
            xlab = 'Time (weeks)',
            title = "Kaplan-Meier estimator for Variable has_name",
            risk.table = TRUE,
-           risk.table.height = 0.27,
+           risk.table.height = 0.3,
            break.time.by = 145)
 
 # The logrank test
 survdiff(Surv(time_to_outcome, outcome) ~ has_name, data = data[,-1])
 ```
 
-Variable `animal_type`
+#### **Variable `animal_type`**
 
 ```{r}
+#| echo: false
+#| fig.width: 9
+#| fig.height: 4.5
 type_comp <- survfit(Surv(time_to_outcome, outcome) ~ animal_type, data = data[,-1])
 type_comp
 
@@ -490,16 +504,19 @@ ggsurvplot(survfit(Surv(time_to_outcome, outcome) ~ animal_type,
            xlab = 'Time (weeks)',
            title = "Kaplan-Meier estimator for Variable animal_type",
            risk.table = TRUE,
-           risk.table.height = 0.29,
+           risk.table.height = 0.3,
            break.time.by = 145)
 
 # The logrank test
 survdiff(Surv(time_to_outcome, outcome) ~ animal_type, data = data)
 ```
 
-Variable `spay_neuter`
+#### **Variable `spay_neuter`**
 
 ```{r}
+#| echo: false
+#| fig.width: 9
+#| fig.height: 4.5
 spay_neuter_comp <- survfit(Surv(time_to_outcome, outcome) ~ spay_neuter, data = data[,-1])
 spay_neuter_comp
 
@@ -508,18 +525,19 @@ ggsurvplot(survfit(Surv(time_to_outcome, outcome) ~ spay_neuter,
            xlab = 'Time (weeks)',
            title = "Kaplan-Meier estimator for Variable spay_neuter",
            risk.table = TRUE,
-           risk.table.height = 0.27,
+           risk.table.height = 0.3,
            break.time.by = 145)
 
 # The logrank test
 survdiff(Surv(time_to_outcome, outcome) ~ spay_neuter, data = data[,-1])
 ```
 
-Variable `color_count`
+**Variable `color_count`**
 
 ```{r}
 #| echo: false
-
+#| fig.width: 9
+#| fig.height: 4.8
 color_count_comp <- survfit(Surv(time_to_outcome, outcome) ~ color_count, data = data[,-1])
 color_count_comp
 
@@ -528,7 +546,7 @@ ggsurvplot(survfit(Surv(time_to_outcome, outcome) ~ color_count,
            xlab = 'Time (weeks)',
            title = "Kaplan-Meier estimator for Variable color_count",
            risk.table = TRUE,
-           risk.table.height = 0.29,
+           risk.table.height = 0.3,
            break.time.by = 145
            )
 
@@ -536,11 +554,12 @@ ggsurvplot(survfit(Surv(time_to_outcome, outcome) ~ color_count,
 survdiff(Surv(time_to_outcome, outcome) ~ color_count, data = data[,-1])
 ```
 
-Variable `color_shade_intens`
+**Variable `color_shade_intens`**
 
 ```{r}
 #| echo: false
-
+#| fig.width: 9
+#| fig.height: 6
 color_shade_intens_comp <- survfit(Surv(time_to_outcome, outcome) ~ color_shade_intens, data = data[,-1])
 color_shade_intens_comp
 
@@ -549,7 +568,7 @@ ggsurvplot(survfit(Surv(time_to_outcome, outcome) ~ color_shade_intens,
            xlab = 'Time (weeks)',
            title = "Kaplan-Meier estimator for Variable color_shade_intens",
            risk.table = TRUE,
-           risk.table.height = 0.31,
+           risk.table.height = 0.3,
            break.time.by = 145)
 
 # The logrank test
@@ -560,7 +579,8 @@ survdiff(Surv(time_to_outcome, outcome) ~ color_shade_intens, data = data[,-1])
 
 ```{r}
 #| echo: false
-
+#| fig.width: 9
+#| fig.height: 6
 fit.KM_strata<-survfit(Surv(time_to_outcome, outcome)~sex+strata(spay_neuter),data=data)
 
 fit.KM_strata
@@ -571,7 +591,7 @@ ggsurvplot(survfit(Surv(time_to_outcome, outcome) ~ sex+strata(spay_neuter),
            xlab = 'Time (weeks)',
            title = "Kaplan-Meier estimator for compounding groups sex + spay_neuter",
            risk.table = TRUE,
-           risk.table.height = 0.31,
+           risk.table.height = 0.32,
            break.time.by = 145)
 ```
 
@@ -579,12 +599,11 @@ ggsurvplot(survfit(Surv(time_to_outcome, outcome) ~ sex+strata(spay_neuter),
 
 ```{r}
 #| echo: false
-
 cox_model_full <- cox_model
 MAIC <- step(cox_model_full)
 ```
 
-Result of the automatic model selection.
+**Result of the automatic model selection.**
 
 ```{r}
 #| echo: false
@@ -592,10 +611,12 @@ Result of the automatic model selection.
 summary(MAIC)
 ```
 
-Probability survival prediction
+**Probability survival prediction**
 
 ```{r}
 #| echo: false
+#| fig.width: 9
+#| fig.height: 3.5
 
 data_df <- as_data_frame(data) # we redefine the dataframe as we releveled some variables above in a previous chunck.
 
@@ -606,17 +627,19 @@ ggsurvplot(fit.Cox,
            xlab = 'Time (weeks)',
            title = "Cox model",
            risk.table = TRUE,
+           risk.table.height = 0.32,
            break.time.by = 145)
 
 #Estimated probability of not being adopted after 1 year
 summary(fit.Cox, time = 52)
 ```
 
-New data point prediction
+**New data point prediction for one point changing only the** `spay_neuter` **variable**
 
 ```{r}
 #| echo: false
-
+#| fig.width: 9
+#| fig.height: 3.5
 # Prediction
 spay_neutered_data <- tibble(animal_type = c('Dog', 'Dog'),
                              has_name = c(TRUE,TRUE),
@@ -635,6 +658,7 @@ ggsurvplot(fit,
            title = "Cox model prediction depending on spay_neuter",
            legend.labs = c("spay_neuter = Fixed", "spay_neuter = Intact"),
            risk.table = TRUE,
+           risk.table.height = 0.32,
            break.time.by = 145)
 ```
 
@@ -646,6 +670,7 @@ ggsurvplot(fit,
 #| echo: false
 data$residual <- residuals(cox_model, type = "martingale")
 
+par(mfrow = c(2, 3), mar = c(4, 4, 1, 1), oma = c(0, 0, 2, 0))
 with(data, {
   plot(residual ~ animal_type)
   plot(residual ~ has_name)
@@ -657,6 +682,9 @@ with(data, {
 ```
 
 ```{r}
+#| echo: false
+#| fig.width: 9
+#| fig.height: 3.5
 dfbetas<-residuals(cox_model,type='dfbetas')
 data$dfbetas<-sqrt(rowSums(dfbetas^2))
 
@@ -675,6 +703,8 @@ Schoenfeld residuals
 
 residual.sch <- cox.zph(cox_model)
 residual.sch
+
+par(mfrow = c(3, 2), mar = c(4, 4, 1, 1), oma = c(0, 0, 2, 0))
 plot(residual.sch)
 ```
 
@@ -687,12 +717,16 @@ fit <- coxph(Surv(time_to_outcome, outcome)~animal_type + has_name + sex + color
 
 residual.sch <- cox.zph(fit)
 residual.sch
+
+par(mfrow = c(3, 2), mar = c(4, 4, 1, 1), oma = c(0, 0, 2, 0))
 plot(residual.sch)
 ```
 
 ### Let's look at KM model as well.
 
 ```{r}
+#| fig.width: 9
+#| fig.height: 3.5
 fit.KM<-survfit(Surv(time_to_outcome, outcome)~spay_neuter, data=data)
 fit.KM
 plot(fit.KM, fun ="cloglog", col=2:3)
@@ -704,6 +738,8 @@ The figure indicates violation of proportionality of the hazards.
 Let's try to fix it with stratification
 
 ```{r}
+#| fig.width: 9
+#| fig.height: 3.5
 fit.KM_strata<-survfit(Surv(time_to_outcome, outcome)~spay_neuter+strata(sex),data=data)
 fit.KM_strata
 plot(fit.KM_strata, fun ="cloglog", col=2:5)
@@ -715,6 +751,8 @@ The figure still indicates violation of proportionality of the hazards.
 Let's try by using sex first.
 
 ```{r}
+#| fig.width: 9
+#| fig.height: 3.5
 fit.KM<-survfit(Surv(time_to_outcome, outcome)~sex, data=data)
 fit.KM
 plot(fit.KM, fun ="cloglog", col=2:3)
@@ -726,6 +764,8 @@ The figure indicates violation of proportionality of the hazards.
 Let's try to fix it with stratification
 
 ```{r}
+#| fig.width: 9
+#| fig.height: 3.5
 fit.KM_strata<-survfit(Surv(time_to_outcome, outcome)~sex+strata(spay_neuter),data=data)
 fit.KM_strata
 plot(fit.KM_strata, fun ="cloglog", col=2:5)
