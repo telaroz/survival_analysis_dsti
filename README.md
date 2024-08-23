@@ -20,7 +20,13 @@ Data dictionary (from [Kaggle](https://www.kaggle.com/competitions/sliced-s01e10
 • name: name of the animal
 • outcome_type: there are three possible outcomes: adoption, transfer, no outcome (euthanized, died)
 • sex: sex of the animal
-• spay_neuter: whether the animal was spayed or neutered: intact or fixed
+• spay_neuter: whether the animal was spayed or neutered: intact or fixed.
+
+
+## Main files
+survival_project.qmd : Full script.
+survival_project.pdf : Report.
+survival_project_appendix.pdf : Appendix.
 
 ## Using R Projects
 
