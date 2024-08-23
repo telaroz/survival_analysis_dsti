@@ -7,10 +7,15 @@ author:
   - "Marius Akre"
   - "Stefanny Peraza"
   - "Valery Zuñiga"
+params:
+  appendix: "https://github.com/telaroz/survival_analysis_dsti/blob/T4_M240823/survival_project_appendix.pdf"
+  github_link: "https://github.com/telaroz/survival_analysis_dsti"
 execute:
   message: false
   warning: false
 ---
+
+[View the project on GitHub](`r params$github_link`)
 
 # Introduction
 
@@ -83,7 +88,7 @@ In order to be able to work with this data, these will be the first modification
 
 -   We keep `animal_type` (`Unknown` `sex` and `spay_neuter` have been removed as described above). The only modification in this case will be that for `animal_type`, since there are only 5 observations in Livestock and it remains only 90 observations in Bird after the removals, we will join these categories to Other. In summary we have a majority of dogs and cats, where 48% are female and 52% male. In the case of spaying and neutering, we have 74% fixed and 26% classified intact.
 
-[^2]: The cross tables for the variables `sex`, `animal_type`, `has_name`, `color_count`, `color_shade_intens`, details on removed `Unknown` records, details on Kaplan-Meyer and Fleming-harrington estimators : see appendix 1.
+[^2]: The cross tables for the variables `sex`, `animal_type`, `has_name`, `color_count`, `color_shade_intens`, details on removed `Unknown` records, details on Kaplan-Meyer and Fleming-harrington estimators : see [Appendix](`r params$appendix`) 1.
 
 ```{r}
 #| echo: false
@@ -234,7 +239,7 @@ tbl_cross(data, row = spay_neuter, col = outcome,percent = c("row"), digits = 0)
 
 Within the animals, there is not a difference that seems to be important according to sex, at least not proportionally. In the case of animals with names, more than 77% have been adopted against 34% in the case of those without names. Something similar happens with the animals that have been spayed or neutered, the proportion of adopted animals in this case exceeds 80%, while in the group of those that have not undergone surgery, the percentage of adopted animals is barely 26%. Lastly, dogs are not only the largest number of animals but also have the highest adoption rate, while among cats there is practically half and half between adopted and non-adopted, and among others type there is the lower adoption rate (36%). By looking at the distribution of the enriched dataset, it seems that having more number of colors increase the chance of adoption.[^3]
 
-[^3]: The cross tables for the variables `sex`, `animal_type`, `has_name`, `color_count`, `color_shade_intens`, details on removed `Unknown` records, details on Kaplan-Meyer and Fleming-harrington estimators : see appendix 1.
+[^3]: The cross tables for the variables `sex`, `animal_type`, `has_name`, `color_count`, `color_shade_intens`, details on removed `Unknown` records, details on Kaplan-Meyer and Fleming-harrington estimators : see [Appendix](`r params$appendix`) 1.
 
 # Statistical Analysis
 
@@ -242,29 +247,48 @@ The next graph is the survival curve and the cumulative hazard function, for thi
 
 ```{r}
 #| echo: false
-#| fig.width: 9
+#| fig.width: 12
 #| fig.height: 4
 #survival object
 so <- survfit(Surv(time_to_outcome, outcome) ~ 1, data =data[,-1] )
 
-par(mfrow=c(1,2))
 #TODO: fix this graph
 #so |>
 #  autoplot() +
 #  ylab("S(t)") +
 #  xlab("Time")
 
-#Cumulative
-ggsurvplot(so, data = data,fun = "cumhaz",
-           xlab = "Time in weeks"
-           )
+#Survival proba
+plot1 <- ggsurvplot(so, data = data,
+                    risk.table = TRUE,
+                    risk.table.height = 0.3,
+                    title = "Survival probabilities",
+                    xlab = "Time in weeks",
+                    break.time.by = 145
+                    )
+
+#Cumulative hazard
+plot2 <- ggsurvplot(so, data = data,fun = "cumhaz",
+                    risk.table = TRUE,
+                    risk.table.height = 0.3,
+                    title = "Cumulative hazard",
+                    xlab = "Time in weeks",
+                    break.time.by = 145
+                    )
+
+ggarrange(
+  plot1$plot, plot2$plot, # Main plots
+  plot1$table, plot2$table, # Risk tables
+  ncol = 2, nrow = 2, 
+  heights = c(2, 1) # Adjust the height of the plots relative to the tables
+)
 ```
 
 ## Nonparametric methods for censored data
 
-Using the Kaplan-Meyer estimator (KM) methodology we can see that the median survival time is 106 weeks (in this particular case the time from birth to adoption, and it's about 2 years). If we estimate the probability of not being adopted when the animal is one year old, we see that this value is 70.8% (for further information look at Appendix 2). We get similar results with Fleming−Harrington estimator. We will focus on the KM estimator in the following sections then.[^4]
+Using the Kaplan-Meyer estimator (KM) methodology we can see that the median survival time is 106 weeks (in this particular case the time from birth to adoption, and it's about 2 years). If we estimate the probability of not being adopted when the animal is one year old, we see that this value is 70.8% (for further information look at [Appendix](`r params$appendix`) 2). We get similar results with Fleming−Harrington estimator. We will focus on the KM estimator in the following sections then.[^4]
 
-[^4]: The cross tables for the variables `sex`, `animal_type`, `has_name`, `color_count`, `color_shade_intens`, details on removed `Unknown` records, details on Kaplan-Meyer and Fleming-harrington estimators : see appendix 1.
+[^4]: The cross tables for the variables `sex`, `animal_type`, `has_name`, `color_count`, `color_shade_intens`, details on removed `Unknown` records, details on Kaplan-Meyer and Fleming-harrington estimators : see [Appendix](`r params$appendix`) 1.
 
 ## Nonparametric comparison of groups
 
@@ -300,7 +324,7 @@ In the `has_name` we get a difference between the curves and it looks like the a
 
 We can perform the same process with other categorical variables[^5] : - `animal_type` : at least one of the 3 (crossing) survival curves looks different and H0 is rejected : at least one is statistically different. - `spay_neuter` : the 2 survival curves look different and H0 is rejected : they are statistically different. - `color_count` : the 3 survival curves look closed BUT H0 is rejected : AT LEAST 1 is STATISTICALLY different. - `color_shade_intens` : AT LEAST one of the 4 (crossing) survival curves looks different BUT H0 is accepted : they are STATISTICALLY similar.
 
-[^5]: for further information look at Appendix 2
+[^5]: for further information look at [Appendix](`r params$appendix`) 2
 
 ### Nonparametric comparison of more than 2 groups
 
@@ -308,7 +332,7 @@ We could also compare survival between 2 groups controlling for potentially conf
 
 By using stratification on `spay_neuter`, we can indeed see that for Intact `spay_neuter` groups the medians and the survival curves are less close from each other. Furthermore, we can see that the `sex=Female, strata(spay_neuter)=Intact` group has the highest probability (i.e. the lowest chance to be adopted) while it is the other way round within the "Fixed group" : Male are the lowest chance to be adopted. However, these results should be taken with cautious as the stratified logrank test display a p value = threshold = 5% (probably due to the fact that they are more pets in the Fixed group where it looks like there are less differences between Female and Male).[^6]
 
-[^6]: for further information look at Appendix 2
+[^6]: for further information look at [Appendix](`r params$appendix`) 2
 
 ## Semi-parametric Cox regression
 
@@ -335,13 +359,13 @@ About the colors, known shade intensity makes statistically a significant differ
 
 However, using all these covariates may not be the best choice to get the best model (from the AIC criteria point of view for example). By applying an automatic model selection based on AIC we get the conclusion that we should keep all the covariates in addition to an intercept, to have the best model (highest AIC).[^7]
 
-[^7]: for further information look at Appendix 3
+[^7]: for further information look at [Appendix](`r params$appendix`) 3
 
 ### Prediction
 
 A model can be used in two main ways : to analyze or study interactions between the covariates like we did or to predict. Let's see our predicted survival proportion for the whole data. We can see that the estimated probability of not being adopted within 1 year is slightly higher (71.4%) than the one of KM model (70.8%) but they remain close.[^8]
 
-[^8]: for further information look at Appendix 3.
+[^8]: for further information look at [Appendix](`r params$appendix`) 3.
 
 Now, we can also do a prediction and verify how this survival changes depending on the `spay_neuter` variable for example.
 
@@ -355,9 +379,9 @@ After getting these model, we should verify the assumptions of these model. Let'
 
 The residuals are not so well formed (not around 0). There are many outliers. Schoenfeld residuals are far from zero and not in the boundaries. Furthermore, the plot of proportionality of the hazards does not look good : H0 (beta = beta(t)) is rejected. We can try stratification or truncate to fix that. However, stratification did not make the assumption validation better[^9].
 
-[^9]: for further information look at Appendix 4
+[^9]: for further information look at [Appendix](`r params$appendix`) 4
 
-The model would not be validated from a theoretical point of view, although the results of our previous analyses of the models seem very consistent to the behaviors that we could have expected a priori. Indeed, conclusions of the analyses seem also consistent to what we may observe in reality for pet adoption. We could conclude by take all previous results with cautious and also remind this common aphorism: "All models are wrong, but some are useful", George E. P. Box
+The model would not be validated from a theoretical point of view, although the results of our previous analyses of the models seem very consistent to the behaviors that we could have expected a priori. Indeed, conclusions of the analyses seem also consistent to what we may observe in reality for pet adoption. We could conclude by taking all previous results with cautious and also remind this common aphorism: "All models are wrong, but some are useful", George E. P. Box
 
 # Appendix
 
@@ -441,7 +465,7 @@ cat('\n', '*** Fleming-harrington estimator ***', '\n')
 fit.NA <- survfit(Surv(time_to_outcome, outcome) ~ 1 , data = data[,-1], type = "fleming-harrington") 
 fit.NA
 
-cat('\n', '*** stimated probability of not being adopted within 1 year old ***', '\n')
+cat('\n', '*** Estimated probability of not being adopted within 1 year old ***', '\n')
 summary(fit.KM, time = 52)
 summary(fit.NA, time = 52)
 
@@ -692,7 +716,7 @@ plot(data$dfbetas,type='h')
 abline(h=0)
 ```
 
-We could try to identify data with these highest values, remove them and redo the all process to eventually check if the model assumptions are satisfied.
+We could try to identify data with the highest values, remove them and redo the all process to eventually check if the model assumptions are satisfied.
 
 ### Model validation check with `Proportionality of hazards`
 
