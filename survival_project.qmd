@@ -8,7 +8,7 @@ author:
   - "Stefanny Peraza"
   - "Valery Zuñiga"
 params:
-  appendix: "https://github.com/telaroz/survival_analysis_dsti/blob/T4_M240823/survival_project_appendix.pdf"
+  appendix: "https://github.com/telaroz/survival_analysis_dsti/blob/main/survival_project_appendix.pdf"
   github_link: "https://github.com/telaroz/survival_analysis_dsti"
 execute:
   message: false
